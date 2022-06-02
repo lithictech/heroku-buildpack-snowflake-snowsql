@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# bin/compile <build-dir> <cache-dir>
+# bin/compile <build-dir> <cache-dir> <env-dir>
 
 # fail fast
 set -e
 
 # debug
-set -x
+#set -x
 
 BUILD_DIR=$1
 CACHE_DIR=$2
+ENV_DIR=$3
 
 function error() {
   echo " !     $*" >&2
@@ -27,16 +28,23 @@ function indent() {
   esac
 }
 
+if [ -f $ENV_DIR/SNOWSQL_BUILDPACK_DOWNLOAD_URL ]; then
+  topic "Using custom Snowflake download URL"
+  INSTALLER_URL=$(cat $ENV_DIR/SNOWSQL_BUILDPACK_DOWNLOAD_URL)
+else
+  topic "Using default Snowflake download URL (AWS, version 1.2)"
+  INSTALLER_URL="https://sfc-repo.snowflakecomputing.com/snowsql/bootstrap/1.2/linux_x86_64/snowsql-1.2.21-linux_x86_64.bash"
+fi
+
 SNOWSQL_CACHE_DIR="$CACHE_DIR/snowsql/cache"
 
 mkdir -p $SNOWSQL_CACHE_DIR
 
 if [ -f $SNOWSQL_CACHE_DIR/snowsql-linux_x86_64.bash ]; then
-  topic "Loading cached installer"
+  topic "Using cached installer"
 else
-  url="https://sfc-repo.azure.snowflakecomputing.com/snowsql/bootstrap/1.2/linux_x86_64/snowsql-1.2.21-linux_x86_64.bash"
-  topic "Fetching $url"
-  curl -L -o $SNOWSQL_CACHE_DIR/snowsql-linux_x86_64.bash $url
+  topic "Fetching $INSTALLER_URL"
+  curl -L -o $SNOWSQL_CACHE_DIR/snowsql-linux_x86_64.bash $INSTALLER_URL
 fi
 
 mkdir -p $BUILD_DIR/bin
@@ -47,3 +55,13 @@ if [ -z $DRYRUN ]; then
 else
   topic "Would run $SNOWSQL_CACHE_DIR/snowsql-linux_x86_64.bash"
 fi
+
+if [ -f $ENV_DIR/SNOWSQL_BUILDPACK_CONFIG_CONTENTS ]; then
+  topic "Using custom config file from var"
+  cp $ENV_DIR/SNOWSQL_BUILDPACK_CONFIG_CONTENTS ~/.snowsql/config
+else
+  topic "Using empty config file"
+  echo "" > ~/.snowsql/config
+fi
+
+cp -r ~/.snowsql $BUILD_DIR/.snowsql
