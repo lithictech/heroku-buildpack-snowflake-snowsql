@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# bin/compile <build-dir> <cache-dir>
+
+# fail fast
+set -e
+
+# debug
+set -x
+
+BUILD_DIR=$1
+CACHE_DIR=$2
+
+function error() {
+  echo " !     $*" >&2
+  exit 1
+}
+
+function topic() {
+  echo "-----> $*"
+}
+
+function indent() {
+  c='s/^/       /'
+  case $(uname) in
+	Darwin) sed -l "$c";;
+	*)      sed -u "$c";;
+  esac
+}
+
+SNOWSQL_CACHE_DIR="$CACHE_DIR/snowsql/cache"
+
+mkdir -p $SNOWSQL_CACHE_DIR
+
+if [ -f $SNOWSQL_CACHE_DIR/snowsql-linux_x86_64.bash ]; then
+  topic "Loading cached installer"
+else
+  url="https://sfc-repo.azure.snowflakecomputing.com/snowsql/bootstrap/1.2/linux_x86_64/snowsql-1.2.21-linux_x86_64.bash"
+  topic "Fetching $url"
+  curl -L -o $SNOWSQL_CACHE_DIR/snowsql-linux_x86_64.bash $url
+fi
+
+mkdir -p $BUILD_DIR/bin
+
+if [ -z $DRYRUN ]; then
+  touch $BUILD_DIR/.bash_profile
+  SNOWSQL_DEST=$BUILD_DIR/bin SNOWSQL_LOGIN_SHELL=$BUILD_DIR/.bash_profile bash $SNOWSQL_CACHE_DIR/snowsql-linux_x86_64.bash
+else
+  topic "Would run $SNOWSQL_CACHE_DIR/snowsql-linux_x86_64.bash"
+fi
